@@ -1,0 +1,7 @@
+# dev files
+tslint.json
+tsconfig.json
+.npmignore
+.gitignore
+.vscode
+*.ts
