@@ -1,6 +1,6 @@
 {
   "name": "btulz",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "tools suit including types creater.",
   "main": "index.js",
   "bin": {

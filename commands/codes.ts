@@ -217,6 +217,8 @@ export module sapUI5 {
                 return "any[]";
             } else if (strings.equalsIgnoreCase(content, "Promise")) {
                 return "Promise<any>";
+            } else if (strings.equalsIgnoreCase(content, "string|Promise")) {
+                return "string | Promise<any>";
             } else if (strings.equalsIgnoreCase(content, "oPromise")) {
                 return "any";
             } else if (typeof (content) === "string" && content.indexOf("jQuery") >= 0) {
@@ -228,6 +230,9 @@ export module sapUI5 {
                     || content.indexOf(">") > 0
                     || content.indexOf("<") > 0)) {
                 return "any";
+            } else if (typeof (content) === "string"
+                && content.toLowerCase().endsWith("callback")) {
+                return "Function";
             }
             return content;
         }
@@ -262,6 +267,7 @@ export module sapUI5 {
     }
 
     const PROPERTY_SYMBOLS: symbol = Symbol("symbols");
+    const PROPERTY_CLASS_SYMBOLS: symbol = Symbol("classSymbols");
     export class Exporter {
         protected outFile: fs.WriteStream;
         protected mapSymbols(): Map<string, sap.ui5.Symbol> {
@@ -274,6 +280,10 @@ export module sapUI5 {
             let nsSymbols: Array<sap.ui5.Symbol> = new Array<sap.ui5.Symbol>();
             for (let item of symbols) {
                 this.mapSymbols().set(item.name, item);
+                if (item.kind === "class") {
+                    // 记录类类型
+                    this.classSymbols().set(item.name, item);
+                }
                 if (item.kind !== "namespace") {
                     continue;
                 }
@@ -290,6 +300,8 @@ export module sapUI5 {
                     continue;
                 }
                 nsSymbols.push(item);
+                // 命名空间输出，则不再处理
+                this.mapSymbols().delete(item.name);
             }
             for (let item of nsSymbols) {
                 let namespaces: string[] = item.name.split(".");
@@ -421,6 +433,8 @@ export module sapUI5 {
             } else {
                 throw new Error("unkown symbol type " + symbol.kind + " @" + symbol.name);
             }
+            // 清除输出过的
+            this.mapSymbols().delete(symbol.name);
         }
         protected outPutClass(csSymbol: sap.ui5.Symbol): void {
             console.log("out %s: %s", csSymbol.kind, csSymbol.name);
@@ -442,7 +456,7 @@ export module sapUI5 {
                     if (item.static !== true) {
                         continue;
                     }
-                    if (item.visibility === "restricted") {
+                    if (item.visibility !== "public") {
                         // 私有方法不处理
                         continue;
                     }
@@ -485,14 +499,59 @@ export module sapUI5 {
                         || (item.name === "getDomRef" && (!item.returnValue || format.types(item.returnValue.type) !== "HTMLElement"))
                         || item.name === "getMetadata"
                         || (item.name.startsWith("set") && !item.parameters)
-                        || (item.name.startsWith("set") && !item.returnValue)) {
+                        || (item.name.startsWith("get") && !item.returnValue)) {
                         // 跳过方法
                         continue;
                     }
-                    this.outPutFunction(item);
+                    // 输出基类方法
+                    if (this.outPutOverloads(csSymbol, item) === true) {
+                        // 输出方法
+                        this.outPutFunction(item);
+                    }
                 }
             }
             this.outFile.write(format.ends());
+        }
+        private classSymbols(): Map<string, sap.ui5.Symbol> {
+            if (!(this[PROPERTY_CLASS_SYMBOLS] instanceof Map)) {
+                this[PROPERTY_CLASS_SYMBOLS] = new Map<string, sap.ui5.Symbol>();
+            }
+            return this[PROPERTY_CLASS_SYMBOLS];
+        }
+        protected outPutOverloads(csSymbol: sap.ui5.Symbol, method: sap.ui5.Method): boolean {
+            if (!(csSymbol.extends)) {
+                return true;
+            }
+            if (!(method.name)) {
+                return true;
+            }
+            let faSymbol: sap.ui5.Symbol = this.classSymbols().get(csSymbol.extends);
+            if (!(faSymbol)) {
+                return true;
+            }
+            // 输出基类方法
+            if (this.outPutOverloads(faSymbol, method) !== true) {
+                return false;
+            }
+            if (faSymbol.methods instanceof Array) {
+                for (let item of faSymbol.methods) {
+                    // 基类中存在同名方法
+                    if (item.name !== method.name) {
+                        continue;
+                    }
+                    // 跳过私有
+                    if (item.visibility === "restricted") {
+                        continue;
+                    }
+                    // 可见不一致
+                    if (item.visibility !== method.visibility) {
+                        return false;
+                    }
+                    // 输出方法
+                    this.outPutFunction(item);
+                }
+            }
+            return true;
         }
         protected outPutInterface(inSymbol: sap.ui5.Symbol): void {
             console.log("out %s: %s", inSymbol.kind, inSymbol.name);

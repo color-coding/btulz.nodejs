@@ -5,3 +5,6 @@ tsconfig.json
 .gitignore
 .vscode
 *.ts
+
+# test data files
+test/data/**

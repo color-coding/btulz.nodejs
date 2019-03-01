@@ -63,16 +63,27 @@ var command: yargs.CommandModule<{}, { out: string, data: string, indexUrl: stri
                         }
                         let apiUrl: string = strings(args.apiUrl).replaceAll("{VERSION}", version).toString();
                         let libs: Map<string, string> = new Map<string, string>();
-                        for (let symbol of api.symbols) {
+                        let eachSymbol: Function = function (symbol: sap.ui5.Symbol): void {
                             if (!symbol.lib) {
-                                continue;
+                                return;
                             }
                             if (symbol.deprecated === true) {
-                                continue;
+                                return;
+                            }
+                            if (symbol.visibility === "restricted") {
+                                return;
                             }
                             if (!libs.has(symbol.lib)) {
                                 libs.set(symbol.lib, strings(apiUrl).replaceAll("{LIBRARY}", strings(symbol.lib).replaceAll(".", "/").toString()).toString());
                             }
+                            if (symbol.nodes instanceof Array) {
+                                for (let item of symbol.nodes) {
+                                    eachSymbol(item);
+                                }
+                            }
+                        };
+                        for (let item of api.symbols) {
+                            eachSymbol(item);
                         }
                         let count: number = libs.size;
                         for (let lib of libs.entries()) {
