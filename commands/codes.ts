@@ -5,10 +5,281 @@
  * Use of this source code is governed by an Apache License, Version 2.0
  * that can be found in the LICENSE file at http://www.apache.org/licenses/LICENSE-2.0
  */
+import strings = require("string");
+import format = require("string-format");
 import fs = require("fs");
 import path = require("path");
-const NEW_LINE: string = "\n";
+
+export namespace objects {
+    /**
+     * 是否为空
+     * @param object 判断对象
+     */
+    export function isNull(object: any): boolean {
+        if (object === undefined || object === null) {
+            return true;
+        }
+        return false;
+    }
+    /**
+     * 获取类型名称
+     * @param type 类型
+     */
+    export function nameOf(type: Function | Object): string {
+        if (objects.isNull(type)) {
+            return undefined;
+        }
+        if (typeof type === "object") {
+            type = typeOf(type);
+        }
+        if (typeof type !== "function") {
+            throw new Error("is not a class.");
+        }
+        if (type.name) {
+            return type.name;
+        }
+        return typeof type;
+    }
+    /**
+     * 获取实例类型
+     * @param 实例
+     */
+    export function typeOf(instance: Object): any {
+        if (objects.isNull(instance)) {
+            return undefined;
+        }
+        if (typeof instance !== "object") {
+            throw new Error("is not a object.");
+        }
+        return instance.constructor;
+    }
+}
+export module arrays {
+    export function where<T>(values: T[], lambda?: (value: T) => boolean): T[] {
+        let results: Array<T> = new Array<T>();
+        if (values instanceof Array) {
+            for (let item of values) {
+                if (lambda instanceof Function && lambda(item) !== true) {
+                    continue;
+                }
+                results.push(item);
+            }
+        }
+        return results;
+    }
+    export function first<T>(values: T[], lambda?: (value: T) => boolean): T | null {
+        let results: Array<T> = where(values, lambda);
+        if (results.length > 0) {
+            return results[0];
+        }
+        return null;
+    }
+    export function last<T>(values: T[], lambda?: (value: T) => boolean): T | null {
+        let results: Array<T> = where(values, lambda);
+        if (results.length > 0) {
+            return results[results.length - 1];
+        }
+        return null;
+    }
+}
+export namespace elements {
+    export function naming(value: string): string {
+        let name: string = value;
+        if (!strings(name).isEmpty()) {
+            let index: number = name.indexOf(":");
+            if (index > 0 && index < value.length - 1) {
+                name = name.substring(index + 1);
+            }
+            if (strings(name).include(".")) {
+                name = strings(name).replaceAll(".", "_").toString();
+            }
+        }
+        return name;
+    }
+}
+export enum Visibility {
+    "PUBLIC",
+    "PROTECTED",
+    "PRIVATE"
+}
+export class Element {
+    constructor() {
+    }
+    /** 名称 */
+    name: string;
+    /** 输出字符串 */
+    toString(): string {
+        return format("{0}: {1}", objects.nameOf(this).replace(Element.name, ""), this.name);
+    }
+}
+export class PackageElement extends Element {
+    constructor() {
+        super();
+        this.elements = [];
+    }
+    /** 命名空间 */
+    namespace: string;
+    /** 子元素 */
+    elements: Element[];
+}
+export class NamespaceElement extends Element {
+    constructor() {
+        super();
+        this.elements = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 子元素 */
+    elements: Element[];
+}
+export class ClassElement extends Element {
+    constructor() {
+        super();
+        this.implements = [];
+        this.constructors = [];
+        this.properties = [];
+        this.methods = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 最终的 */
+    final: boolean;
+    /** 抽象的 */
+    abstract: boolean;
+    /** 基类名称 */
+    extends: string;
+    /** 实现的接口 */
+    implements: string[];
+    /** 构造方法 */
+    constructors: ConstructorElement[];
+    /** 属性 */
+    properties: PropertyElement[];
+    /** 方法 */
+    methods: FunctionElement[];
+}
+export class InterfaceElement extends Element {
+    constructor() {
+        super();
+        this.properties = [];
+        this.methods = [];
+        this.extends = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 基类名称 */
+    extends: string[];
+    /** 属性 */
+    properties: PropertyElement[];
+    /** 方法 */
+    methods: FunctionElement[];
+}
+export class EnumElement extends Element {
+    constructor() {
+        super();
+        this.values = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 枚举值 */
+    values: EnumValueElement[];
+}
+export class EnumValueElement extends Element {
+    constructor() {
+        super();
+    }
+    /** 值 */
+    value: string;
+}
+export class FunctionElement extends Element {
+    constructor() {
+        super();
+        this.parameters = [];
+        this.returns = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 静态 */
+    static: boolean;
+    /** 最终的 */
+    final: boolean;
+    /** 抽象的 */
+    abstract: boolean;
+    /** 参数 */
+    parameters: ParameterElement[];
+    /** 返回值 */
+    returns: ParameterTypeElement[];
+}
+export class ConstructorElement extends Element {
+    constructor() {
+        super();
+        this.parameters = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 参数 */
+    parameters: ParameterElement[];
+}
+export class PropertyElement extends Element {
+    constructor() {
+        super();
+        this.types = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 静态 */
+    static: boolean;
+    /** 最终的 */
+    final: boolean;
+    /** 可选 */
+    optional: boolean;
+    /** 数组 */
+    array: boolean;
+    /** 类型 */
+    types: ParameterTypeElement[];
+}
+export class ParameterElement extends Element {
+    constructor() {
+        super();
+        this.types = [];
+    }
+    /** 可选 */
+    optional: boolean;
+    /** 类型 */
+    types: ParameterTypeElement[];
+}
+export class ParameterTypeElement extends Element {
+    naming(name: string): void {
+        this.name = elements.naming(name);
+    }
+}
+export class FnParameterElement extends ParameterElement {
+    constructor() {
+        super();
+        this.parameters = [];
+    }
+    /** 参数 */
+    parameters: ParameterElement[];
+}
+export class TypedefElement extends Element {
+    constructor() {
+        super();
+        this.types = [];
+        this.visibility = Visibility.PUBLIC;
+    }
+    /** 访问级别 */
+    visibility: Visibility;
+    /** 类型 */
+    types: ParameterTypeElement[];
+}
 const PROPERTY_VALUES: symbol = Symbol("values");
+const NEW_LINE: string = "\n";
 /** 构建器 */
 export class Builder {
     /** 值 */
@@ -23,8 +294,10 @@ export class Builder {
         this.values().push(content);
     }
     /** 写入行 */
-    wirteLine(content: string): void {
-        this.values().push(content);
+    wirteLine(content?: string): void {
+        if (!strings(content).isEmpty()) {
+            this.values().push(content);
+        }
         this.values().push(NEW_LINE);
     }
     /** 输出字符串 */
@@ -36,834 +309,381 @@ export class Builder {
         return value;
     }
 }
+export abstract class CodeGenerator {
 
-export module sapUI5 {
-    const INDENT: string = "....";
-    const DOT: string = ".";
-    export module strings {
-        /**
-         * 比较字符串
-         * @param value1 字符1
-         * @param value2 字符2
-         */
-        export function equals(value1: string, value2: string): boolean {
-            return value1 === value2;
+    package: PackageElement;
+
+    workFolder: string;
+
+    extension: string;
+
+    protected tabSpace(level: number): string {
+        let builder: Builder = new Builder();
+        for (let index: number = 0; index < (level * 4) && level > 0; index++) {
+            builder.wirte(" ");
         }
-        /**
-         * 比较字符串，忽略大小写
-         * @param value1 字符1
-         * @param value2 字符2
-         */
-        export function equalsIgnoreCase(value1: string, value2: string): boolean {
-            if (value1 === undefined || value1 === null) { return false; }
-            if (value2 === undefined || value2 === null) { return false; }
-            let tmp1: string = value1.toLowerCase();
-            let tmp2: string = value2.toLowerCase();
-            return equals(tmp1, tmp2);
-        }
-    }
-    export module format {
-        export function copyrights(): string {
-            let builder: Builder = new Builder();
-            builder.wirteLine("/**");
-            builder.wirteLine(" * @license");
-            builder.wirteLine(" * Copyright Color-Coding Studio. All Rights Reserved.");
-            builder.wirteLine(" *");
-            builder.wirteLine(" * Use of this source code is governed by an Apache License, Version 2.0");
-            builder.wirteLine(" * that can be found in the LICENSE file at http://www.apache.org/licenses/LICENSE-2.0");
-            builder.wirteLine(" */");
-            return builder.toString();
-        }
-        export function names(content: string): string {
-            if (content) {
-                let index: number = content.lastIndexOf(DOT);
-                if (index > 0) {
-                    content = content.substring(index + 1);
-                }
-            }
-            return content;
-        }
-        export function ends(): string {
-            return `}` + NEW_LINE;
-        }
-        export function comments(content: string): string {
-            let builder: Builder = new Builder();
-            builder.wirteLine("/**");
-            if (content) {
-                builder.wirte(" * ");
-                builder.wirte(content);
-                builder.wirteLine("");
-            }
-            builder.wirteLine(" */");
-            return builder.toString();
-        }
-        export function namespaces(content: string, head: string = undefined): string {
-            let builder: Builder = new Builder();
-            if (head) {
-                builder.wirte(head);
-                builder.wirte(" ");
-            }
-            builder.wirte("namespace");
-            builder.wirte(" ");
-            builder.wirte(content);
-            builder.wirte(" ");
-            builder.wirteLine("{");
-            return builder.toString();
-        }
-        export function enums(content: string): string {
-            let builder: Builder = new Builder();
-            builder.wirte("export");
-            builder.wirte(" ");
-            builder.wirte("enum");
-            builder.wirte(" ");
-            builder.wirte(content);
-            builder.wirte(" ");
-            builder.wirteLine("{");
-            return builder.toString();
-        }
-        export function enumValues(content: string): string {
-            let builder: Builder = new Builder();
-            builder.wirte(content);
-            builder.wirte(" ");
-            builder.wirte("=");
-            builder.wirte(" ");
-            builder.wirte("\"");
-            builder.wirte(content);
-            builder.wirte("\"");
-            builder.wirteLine(",");
-            return builder.toString();
-        }
-        export function classes(content: string, extend: string, implement: string[], abstract: boolean): string {
-            let builder: Builder = new Builder();
-            builder.wirte("export");
-            builder.wirte(" ");
-            if (abstract === true) {
-                builder.wirte("abstract");
-                builder.wirte(" ");
-            }
-            builder.wirte("class");
-            builder.wirte(" ");
-            builder.wirte(content);
-            builder.wirte(" ");
-            if (extend) {
-                builder.wirte("extends");
-                builder.wirte(" ");
-                builder.wirte(extend);
-                builder.wirte(" ");
-            }
-            if (implement instanceof Array && implement.length > 0) {
-                builder.wirte("implements");
-                builder.wirte(" ");
-                for (let index: number = 0; index < implement.length; index++) {
-                    let item: string = implement[index];
-                    if (index > 0) {
-                        builder.wirte(", ");
-                    }
-                    builder.wirte(item);
-                }
-                builder.wirte(" ");
-            }
-            builder.wirteLine("{");
-            return builder.toString();
-        }
-        export function interfaces(content: string, implement: string[]): string {
-            let builder: Builder = new Builder();
-            builder.wirte("export");
-            builder.wirte(" ");
-            builder.wirte("interface");
-            builder.wirte(" ");
-            builder.wirte(content);
-            builder.wirte(" ");
-            if (implement instanceof Array && implement.length > 0) {
-                builder.wirte("extends");
-                builder.wirte(" ");
-                for (let index: number = 0; index < implement.length; index++) {
-                    let item: string = implement[index];
-                    if (index > 0) {
-                        builder.wirte(", ");
-                    }
-                    builder.wirte(item);
-                }
-            }
-            builder.wirteLine("{");
-            return builder.toString();
-        }
-        export function types(content: string): string {
-            if (strings.equalsIgnoreCase(content, "function")) {
-                return "Function";
-            } else if (strings.equalsIgnoreCase(content, "int")) {
-                return "number";
-            } else if (strings.equalsIgnoreCase(content, "int[]")) {
-                return "number[]";
-            } else if (strings.equalsIgnoreCase(content, "float")) {
-                return "number";
-            } else if (strings.equalsIgnoreCase(content, "float[]")) {
-                return "number[]";
-            } else if (strings.equalsIgnoreCase(content, "DomNode")
-                || strings.equalsIgnoreCase(content, "DomRef")
-                || strings.equalsIgnoreCase(content, "Element")) {
-                return "HTMLElement";
-            } else if (strings.equalsIgnoreCase(content, "DomNode[]")
-                || strings.equalsIgnoreCase(content, "DomRef[]")
-                || strings.equalsIgnoreCase(content, "Element[]")) {
-                return "HTMLElement[]";
-            } else if (strings.equalsIgnoreCase(content, "Map")) {
-                return "{ [key: string]: any }";
-            } else if (strings.equalsIgnoreCase(content, "object")) {
-                return "any";
-            } else if (strings.equalsIgnoreCase(content, "*")) {
-                return "any";
-            } else if (strings.equalsIgnoreCase(content, "Array")) {
-                return "any[]";
-            } else if (strings.equalsIgnoreCase(content, "Promise")) {
-                return "Promise<any>";
-            } else if (strings.equalsIgnoreCase(content, "string|Promise")) {
-                return "string | Promise<any>";
-            } else if (strings.equalsIgnoreCase(content, "oPromise")) {
-                return "any";
-            } else if (typeof (content) === "string" && content.indexOf("jQuery") >= 0) {
-                return "any";
-            } else if (strings.equalsIgnoreCase(content, "iScroll")) {
-                return "any";
-            } else if (typeof (content) === "string"
-                && (content.indexOf(":") > 0
-                    || content.indexOf(">") > 0
-                    || content.indexOf("<") > 0)) {
-                return "any";
-            } else if (typeof (content) === "string"
-                && content.toLowerCase().endsWith("callback")) {
-                return "Function";
-            }
-            return content;
-        }
-        export function visibilities(content: string): string {
-            if (!content) {
-                return "";
-            } else if (content === "publice") {
-                return "";
-            } else if (content === "restricted") {
-                return "private";
-            }
-            return content;
-        }
-        export function references(content: string): string {
-            let builder: Builder = new Builder();
-            builder.wirte("///");
-            builder.wirte(" ");
-            builder.wirte("<");
-            builder.wirte("reference");
-            builder.wirte(" ");
-            builder.wirte("path");
-            builder.wirte(" ");
-            builder.wirte("=");
-            builder.wirte("\"");
-            builder.wirte(content);
-            builder.wirte("\"");
-            builder.wirte(" ");
-            builder.wirte("/>");
-            builder.wirteLine("");
-            return builder.toString();
-        }
+        return builder.toString();
     }
 
-    const PROPERTY_SYMBOLS: symbol = Symbol("symbols");
-    const PROPERTY_CLASS_SYMBOLS: symbol = Symbol("classSymbols");
-    export class Exporter {
-        protected outFile: fs.WriteStream;
-        protected mapSymbols(): Map<string, sap.ui5.Symbol> {
-            if (!(this[PROPERTY_SYMBOLS] instanceof Map)) {
-                this[PROPERTY_SYMBOLS] = new Map<string, sap.ui5.Symbol>();
+    do(completed?: (err: Error) => void): void {
+        if (!(this.package instanceof PackageElement)) {
+            if (completed instanceof Function) {
+                completed(new Error("invaild package."));
             }
-            return this[PROPERTY_SYMBOLS];
-        }
-        protected outPutLibrary(symbols: sap.ui5.Symbol[]): void {
-            let nsSymbols: Array<sap.ui5.Symbol> = new Array<sap.ui5.Symbol>();
-            for (let item of symbols) {
-                this.mapSymbols().set(item.name, item);
-                if (item.kind === "class") {
-                    // 记录类类型
-                    this.classSymbols().set(item.name, item);
-                }
-                if (item.kind !== "namespace") {
-                    continue;
-                }
-                if (typeof item.name === "string" && item.name.indexOf(":") > 0) {
-                    continue;
-                }
-                if (typeof item.name === "string" && item.name.startsWith("sap.ui.test")) {
-                    continue;
-                }
-                if (typeof item.name === "string" && item.name.startsWith("sap.ui.model.odata.")) {
-                    continue;
-                }
-                if (typeof item.name === "string" && item.name.startsWith("jQuery")) {
-                    continue;
-                }
-                nsSymbols.push(item);
-                // 命名空间输出，则不再处理
-                this.mapSymbols().delete(item.name);
+        } else if (!fs.statSync(this.workFolder).isDirectory()) {
+            if (completed instanceof Function) {
+                completed(new Error("invaild workFolder."));
             }
-            for (let item of nsSymbols) {
-                let namespaces: string[] = item.name.split(".");
-                let head: string = undefined;
-                if (namespaces.length > 1) {
-                    for (let index: number = 0; index < namespaces.length - 1; index++) {
-                        this.outFile.write(format.namespaces(namespaces[index], index === 0 ? "declare" : undefined));
-                    }
-                } else {
-                    head = "declare";
+        } else {
+            // 增加命名空间
+            let namespaces: string[] = [];
+            if (!strings(this.package.name).isEmpty()) {
+                namespaces.push(this.package.name.toLowerCase());
+            }
+            if (!strings(this.package.namespace).isEmpty()) {
+                let temps: string[] = this.package.namespace.split(".");
+                for (let i: number = temps.length - 1; i >= 0; i--) {
+                    namespaces.push(temps[i]);
                 }
-                if (item["ui5-metadata"] && item["ui5-metadata"].stereotype) {
-                    // 类型
-                    this.outPutType(item);
-                } else if (item.events && !item.nodes) {
-                    // 存在事件，则为类
-                    this.outPutClass(item);
-                } else if (item.properties && item.description.indexOf("Enumeration") >= 0) {
-                    // 描述枚举类型
-                    this.outPutEnum(item);
-                } else {
-                    this.outPutNamespace(item, head);
-                }
-                if (namespaces.length > 1) {
-                    for (let index: number = 0; index < namespaces.length - 1; index++) {
-                        this.outFile.write(format.ends());
-                    }
-                }
+            }
+            for (let item of namespaces) {
+                let element: NamespaceElement = new NamespaceElement();
+                element.name = item;
+                element.elements = this.package.elements;
+                this.package.elements = [];
+                this.package.elements.push(element);
+            }
+            this.writePackage(this.package);
+            if (completed instanceof Function) {
+                completed(undefined);
             }
         }
-        protected outPutType(tpSymbol: sap.ui5.Symbol): void {
-            console.log("out %s: %s", "type", tpSymbol.name);
-            this.outFile.write(format.comments(tpSymbol.description));
-            let builder: Builder = new Builder();
-            builder.wirte("export");
-            builder.wirte(" ");
-            builder.wirte("type");
-            builder.wirte(" ");
-            builder.wirte(tpSymbol.basename);
-            builder.wirte(" ");
-            builder.wirte("=");
-            builder.wirte(" ");
-            builder.wirte(format.types(tpSymbol["ui5-metadata"].basetype));
-            builder.wirte(";");
-            builder.wirteLine("");
-            this.outFile.write(builder.toString());
+    }
+    protected writePackage(element: PackageElement): void {
+        let outFile: string = path.join(this.workFolder, element.name + (strings(this.extension).isEmpty() ? "" : this.extension));
+        let stream: fs.WriteStream = fs.createWriteStream(outFile);
+        this.writeComment(stream);
+        let level: number = -1;
+        for (let item of element.elements) {
+            this.writeElement(item, stream, level + 1);
         }
-        protected outPutNamespace(nsSymbol: sap.ui5.Symbol, head: string = undefined): void {
-            console.log("out %s: %s", nsSymbol.kind, nsSymbol.name);
-            this.outFile.write(format.comments(nsSymbol.description));
-            if (head) {
-                this.outFile.write(head);
-                this.outFile.write(" ");
-            }
-            this.outFile.write(format.namespaces(format.names(nsSymbol.name)));
-            if (nsSymbol.properties) {
-                if (nsSymbol.description.indexOf("Enumeration") >= 0) {
-                    // 描述枚举类型
-                    this.outPutEnum(nsSymbol);
-                } else {
-                    for (let item of nsSymbol.properties) {
-                        // 命名空间的内部及私有属性不输出
-                        if (item.visibility === "protected"
-                            || item.visibility === "restricted") {
-                            continue;
-                        }
-                        this.outPutProperty(item, "var");
-                    }
-                }
-            }
-            if (nsSymbol.methods) {
-                for (let method of nsSymbol.methods) {
-                    // 命名空间的内部及私有方法不输出
-                    if (method.visibility === "protected"
-                        || method.visibility === "restricted") {
-                        continue;
-                    }
-                    if (method.returnValue) {
-                        // 命名空间方法返回值类型是自身时，修正为object
-                        if (method.returnValue.type === nsSymbol.name) {
-                            method.returnValue.type = "object";
-                        }
-                        if (method.returnValue.types) {
-                            for (let item of method.returnValue.types) {
-                                if (item.value === nsSymbol.name) {
-                                    item.value = "object";
-                                }
-                            }
-                        }
-                    }
-                    this.outPutFunction(method, "function");
-                }
-            }
-            if (nsSymbol.nodes) {
-                for (let node of nsSymbol.nodes) {
-                    let symbol: sap.ui5.Symbol = this.mapSymbols().get(node.name);
-                    if (!symbol) {
-                        continue;
-                    }
-                    this.outPutSymbol(symbol);
-                }
-            }
-            this.outFile.write(format.ends());
+        console.log("out file: %s", outFile);
+    }
+    protected writeComment(outFile: fs.WriteStream): void {
+        outFile.write("/**");
+        outFile.write(NEW_LINE);
+        outFile.write(" * @license");
+        outFile.write(NEW_LINE);
+        outFile.write(" * Copyright Color-Coding Studio. All Rights Reserved.");
+        outFile.write(NEW_LINE);
+        outFile.write(" *");
+        outFile.write(NEW_LINE);
+        outFile.write(" * Use of this source code is governed by an Apache License, Version 2.0");
+        outFile.write(NEW_LINE);
+        outFile.write(" * that can be found in the LICENSE file at http://www.apache.org/licenses/LICENSE-2.0");
+        outFile.write(NEW_LINE);
+        outFile.write(" */");
+        outFile.write(NEW_LINE);
+    }
+    protected writeElement(element: Element, outFile: fs.WriteStream, level: number): void {
+        if (element instanceof NamespaceElement) {
+            this.writeNamespace(element, outFile, level);
+        } else if (element instanceof ClassElement) {
+            this.writeClass(element, outFile, level);
+        } else if (element instanceof InterfaceElement) {
+            this.writeInterface(element, outFile, level);
+        } else if (element instanceof EnumElement) {
+            this.writeEnum(element, outFile, level);
+        } else if (element instanceof TypedefElement) {
+            this.writeTypedef(element, outFile, level);
         }
-        protected outPutSymbol(symbol: sap.ui5.Symbol): void {
-            if (symbol.kind === "namespace") {
-                this.outPutNamespace(symbol);
-            } else if (symbol.kind === "enum") {
-                this.outPutEnum(symbol);
-            } else if (symbol.kind === "class") {
-                this.outPutClass(symbol);
-                if (symbol.nodes) {
-                    this.outFile.write(format.namespaces(format.names(symbol.name)));
-                    for (let node of symbol.nodes) {
-                        let symbol: sap.ui5.Symbol = this.mapSymbols().get(node.name);
-                        if (!symbol) {
-                            continue;
-                        }
-                        this.outPutSymbol(symbol);
-                    }
-                    this.outFile.write(format.ends());
-                }
-            } else if (symbol.kind === "interface") {
-                this.outPutInterface(symbol);
-            } else if (symbol.kind === "typedef") {
-                if (symbol.properties) {
-                    this.outPutInterface(symbol);
-                }
-            } else {
-                throw new Error("unkown symbol type " + symbol.kind + " @" + symbol.name);
-            }
-            // 清除输出过的
-            this.mapSymbols().delete(symbol.name);
+    }
+    protected abstract writeNamespace(element: NamespaceElement, outFile: fs.WriteStream, level: number): void;
+    protected abstract writeClass(element: ClassElement, outFile: fs.WriteStream, level: number): void;
+    protected abstract writeInterface(element: InterfaceElement, outFile: fs.WriteStream, level: number): void;
+    protected abstract writeEnum(element: EnumElement, outFile: fs.WriteStream, level: number): void;
+    protected abstract writeTypedef(element: TypedefElement, outFile: fs.WriteStream, level: number): void;
+}
+
+export class TypescriptGenerator extends CodeGenerator {
+
+    protected visibility(value: Visibility): string {
+        if (value === Visibility.PUBLIC) {
+            return "";
+        } else if (value === Visibility.PRIVATE) {
+            return "private ";
+        } else if (value === Visibility.PROTECTED) {
+            return "protected ";
         }
-        protected outPutClass(csSymbol: sap.ui5.Symbol): void {
-            console.log("out %s: %s", csSymbol.kind, csSymbol.name);
-            this.outFile.write(format.comments(csSymbol.description));
-            // 去除不存在的接口
-            let impDatas: string[] = [];
-            if (csSymbol.implements instanceof Array) {
-                for (let item of csSymbol.implements) {
-                    if (!this.mapSymbols().has(item)) {
-                        continue;
-                    }
-                    impDatas.push(item);
-                }
-            }
-            this.outFile.write(format.classes(format.names(csSymbol.name), csSymbol.extends, impDatas, csSymbol.abstract));
-            // 静态方法
-            if (csSymbol.methods) {
-                for (let item of csSymbol.methods) {
-                    if (item.static !== true) {
-                        continue;
-                    }
-                    if (item.visibility !== "public") {
-                        // 私有方法不处理
-                        continue;
-                    }
-                    if (csSymbol.name !== "sap.ui.base.EventProvider" && (
-                        item.name.endsWith("extend") ||
-                        item.name.endsWith("getMetadata"))) {
-                        continue;
-                    }
-                    this.outPutFunction(item);
-                }
-            }
-            // 构造方法
-            for (let item in csSymbol) {
-                if (item === "constructor") {
-                    this.outPutConstructor(csSymbol[item]);
+    }
+    protected writeNamespace(element: NamespaceElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(this.tabSpace(level));
+        if (level === 0) {
+            outFile.write("declare ");
+        }
+        if (element.visibility === Visibility.PUBLIC && !strings(this.extension).endsWith(".d.ts")) {
+            outFile.write("export ");
+        }
+        outFile.write("namespace ");
+        outFile.write(element.name);
+        outFile.write(" ");
+        outFile.write("{");
+        outFile.write(NEW_LINE);
+        // 命名空间下元素去重
+        let elements: Element[] = [];
+        for (let item of element.elements) {
+            let has: boolean = false;
+            for (let sItem of elements) {
+                if (sItem.toString() === item.toString()) {
+                    has = true;
                     break;
                 }
             }
-            // 属性
-            if (csSymbol.properties) {
-                for (let item of csSymbol.properties) {
-                    if (item.visibility === "restricted") {
-                        // 私有方法不处理
-                        continue;
-                    }
-                    this.outPutProperty(item);
-                }
+            if (has) {
+                continue;
             }
-            // 其他方法
-            if (csSymbol.methods) {
-                for (let item of csSymbol.methods) {
-                    if (item.static === true) {
-                        continue;
-                    }
-                    if (item.visibility === "restricted") {
-                        // 私有方法不处理
-                        continue;
-                    }
-                    if (((item.name === "addStyleClass" || item.name === "removeStyleClass") && !item.parameters)
-                        || (item.name === "getDomRef" && (!item.returnValue || format.types(item.returnValue.type) !== "HTMLElement"))
-                        || item.name === "getMetadata"
-                        || (item.name.startsWith("set") && !item.parameters)
-                        || (item.name.startsWith("get") && !item.returnValue)) {
-                        // 跳过方法
-                        continue;
-                    }
-                    // 输出基类方法
-                    if (this.outPutOverloads(csSymbol, item) === true) {
-                        // 输出方法
-                        this.outPutFunction(item);
-                    }
-                }
-            }
-            this.outFile.write(format.ends());
+            elements.push(item);
         }
-        private classSymbols(): Map<string, sap.ui5.Symbol> {
-            if (!(this[PROPERTY_CLASS_SYMBOLS] instanceof Map)) {
-                this[PROPERTY_CLASS_SYMBOLS] = new Map<string, sap.ui5.Symbol>();
-            }
-            return this[PROPERTY_CLASS_SYMBOLS];
+        for (let item of elements) {
+            this.writeElement(item, outFile, level + 1);
         }
-        protected outPutOverloads(csSymbol: sap.ui5.Symbol, method: sap.ui5.Method): boolean {
-            if (!(csSymbol.extends)) {
-                return true;
-            }
-            if (!(method.name)) {
-                return true;
-            }
-            let faSymbol: sap.ui5.Symbol = this.classSymbols().get(csSymbol.extends);
-            if (!(faSymbol)) {
-                return true;
-            }
-            // 输出基类方法
-            if (this.outPutOverloads(faSymbol, method) !== true) {
-                return false;
-            }
-            if (faSymbol.methods instanceof Array) {
-                for (let item of faSymbol.methods) {
-                    // 基类中存在同名方法
-                    if (item.name !== method.name) {
-                        continue;
-                    }
-                    // 跳过私有
-                    if (item.visibility === "restricted") {
-                        continue;
-                    }
-                    // 可见不一致
-                    if (item.visibility !== method.visibility) {
-                        return false;
-                    }
-                    // 输出方法
-                    this.outPutFunction(item);
-                }
-            }
-            return true;
+        outFile.write(this.tabSpace(level));
+        outFile.write("}");
+        outFile.write(NEW_LINE);
+    }
+    protected writeClass(element: ClassElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(this.tabSpace(level));
+        if (element.visibility === Visibility.PUBLIC && !strings(this.extension).endsWith(".d.ts")) {
+            outFile.write("export ");
         }
-        protected outPutInterface(inSymbol: sap.ui5.Symbol): void {
-            console.log("out %s: %s", inSymbol.kind, inSymbol.name);
-            this.outFile.write(format.comments(inSymbol.description));
-            this.outFile.write(format.interfaces(format.names(inSymbol.name), inSymbol.implements));
-            // 属性
-            if (inSymbol.properties) {
-                for (let item of inSymbol.properties) {
-                    if (item.visibility === "restricted") {
-                        // 私有方法不处理
-                        continue;
-                    }
-                    this.outPutProperty(item);
-                }
-            }
-            // 方法
-            if (inSymbol.methods) {
-                for (let item of inSymbol.methods) {
-                    if (item.static === true) {
-                        continue;
-                    }
-                    if (item.visibility === "restricted") {
-                        // 私有方法不处理
-                        continue;
-                    }
-                    this.outPutFunction(item);
-                }
-            }
-            this.outFile.write(format.ends());
+        outFile.write("class ");
+        outFile.write(element.name);
+        outFile.write(" ");
+        if (!strings(element.extends).isEmpty()) {
+            outFile.write("extends ");
+            outFile.write(element.extends);
+            outFile.write(" ");
         }
-        protected outPutEnum(emSymbol: sap.ui5.Symbol): void {
-            console.log("out %s: %s", emSymbol.kind, emSymbol.name);
-            this.outFile.write(format.comments(emSymbol.description));
-            this.outFile.write(format.enums(format.names(emSymbol.name)));
-            if (emSymbol.properties) {
-                for (let item of emSymbol.properties) {
-                    this.outFile.write(format.comments(item.description));
-                    this.outFile.write(format.enumValues(format.names(item.name)));
-                }
-            }
-            this.outFile.write(format.ends());
-        }
-        protected outPutProperty(property: sap.ui5.Property, head: string = undefined): void {
-            this.outFile.write(format.comments(property.description));
-            let builder: Builder = new Builder();
-            if (head) {
-                builder.wirte(head);
-                builder.wirte(" ");
+        for (let item of element.implements) {
+            if (element.implements.indexOf(item) > 0) {
+                outFile.write(", ");
             } else {
-                if (property.visibility && property.visibility !== "public") {
-                    builder.wirte(format.visibilities(property.visibility));
-                    builder.wirte(" ");
-                }
+                outFile.write("implements ");
             }
-            builder.wirte(format.names(property.name));
-            builder.wirte(":");
-            builder.wirte(" ");
-            if (property.type) {
-                builder.wirte(format.types(property.type));
-            } else {
-                builder.wirte("any");
-            }
-            builder.wirte(";");
-            builder.wirteLine("");
-            this.outFile.write(builder.toString());
+            outFile.write(item);
+            outFile.write(" ");
         }
-        protected outPutFunction(method: sap.ui5.Method, head: string = undefined): void {
-            if (method.deprecated) {
-                // 跳过已弃用的
-                return;
+        outFile.write("{");
+        outFile.write(NEW_LINE);
+        // 静态方法
+        for (let item of element.methods) {
+            if (item.static !== true) {
+                continue;
             }
-            let builder: Builder = new Builder();
-            // 输出注释
-            builder.wirteLine("/**");
-            if (method.description) {
-                builder.wirte(" * ");
-                builder.wirte(method.description);
-                builder.wirteLine("");
+            if (item.visibility === Visibility.PUBLIC) {
+                continue;
             }
-            if (method.parameters instanceof Array && method.parameters.length > 0) {
-                for (let i: number = 0; i < method.parameters.length; i++) {
-                    let parameter: sap.ui5.Parameter = method.parameters[i];
-                    if (parameter.depth > 0) {
-                        // 子参数，不处理
-                        continue;
-                    }
-                    builder.wirte(" * ");
-                    builder.wirte("@param");
-                    builder.wirte(" ");
-                    if (parameter.types instanceof Array && parameter.types.length > 0) {
-                        builder.wirte("{");
-                        for (let j: number = 0; j < parameter.types.length; j++) {
-                            let type: sap.ui5.ParameterType = parameter.types[j];
-                            if (j > 0) {
-                                builder.wirte(" | ");
-                            }
-                            builder.wirte(format.types(type.value));
-                        }
-                        builder.wirte("}");
-                        builder.wirte(" ");
-                    }
-                    builder.wirte(parameter.name);
-                    builder.wirte(" ");
-                    builder.wirte(parameter.description);
-                    builder.wirteLine("");
+            this.writeFunction(item, outFile, level + 1);
+        }
+        // 构造
+        for (let item of element.constructors) {
+            this.writeConstructor(item, outFile, level + 1);
+        }
+        // 属性
+        for (let item of element.properties) {
+            this.writeProperty(item, outFile, level + 1);
+        }
+        // 方法
+        for (let item of element.methods) {
+            this.writeFunction(item, outFile, level + 1);
+        }
+        outFile.write(this.tabSpace(level));
+        outFile.write("}");
+        outFile.write(NEW_LINE);
+        outFile.write(NEW_LINE);
+    }
+    protected writeFunction(element: FunctionElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(this.tabSpace(level));
+        if (element.visibility === Visibility.PUBLIC && element.static === true && !strings(this.extension).endsWith(".d.ts")) {
+            outFile.write("export ");
+        } else {
+            outFile.write(this.visibility(element.visibility));
+        }
+        if (element.static) {
+            outFile.write("static function ");
+        }
+        outFile.write(element.name);
+        let writeParameters: Function = function (parameters: ParameterElement[]): void {
+            for (let pItem of parameters) {
+                if (parameters.indexOf(pItem) > 0) {
+                    outFile.write(", ");
                 }
-            }
-            if (method.returnValue) {
-                builder.wirte(" * ");
-                builder.wirte("@returns");
-                builder.wirte(" ");
-                builder.wirte(format.types(method.returnValue.type));
-                builder.wirte(" ");
-                builder.wirte(method.returnValue.description);
-                builder.wirteLine("");
-            }
-            builder.wirteLine(" */");
-            this.outFile.write(builder.toString());
-            // 输出方法
-            builder = new Builder();
-            if (head) {
-                builder.wirte(head);
-                builder.wirte(" ");
-            } else {
-                if (method.visibility && method.visibility !== "public") {
-                    builder.wirte(format.visibilities(method.visibility));
-                    builder.wirte(" ");
+                outFile.write(pItem.name);
+                if (pItem.optional) {
+                    outFile.write("?");
                 }
-                if (method.static === true) {
-                    builder.wirte("static");
-                    builder.wirte(" ");
-                }
-            }
-            builder.wirte(format.names(method.name));
-            builder.wirte("(");
-            if (method.parameters instanceof Array && method.parameters.length > 0) {
-                for (let i: number = 0; i < method.parameters.length; i++) {
-                    let parameter: sap.ui5.Parameter = method.parameters[i];
-                    if (parameter.depth > 0) {
-                        // 子参数，不处理
-                        continue;
-                    }
-                    if (i > 0) {
-                        builder.wirte(",");
-                        builder.wirte(" ");
-                    }
-                    if (parameter.name.indexOf("&") > 0 || parameter.name.indexOf(";") > 0) {
-                        builder.wirte("arg" + String(i));
+                outFile.write(": ");
+                if (pItem instanceof FnParameterElement) {
+                    outFile.write("(");
+                    writeParameters(pItem.parameters);
+                    outFile.write(")");
+                    outFile.write(" => ");
+                    if (pItem.types.length === 0) {
+                        outFile.write("void");
                     } else {
-                        builder.wirte(parameter.name);
-                    }
-                    if (parameter.optional === true) {
-                        // 后面也必须是可选的
-                        let optional: boolean = true;
-                        for (let ii: number = i + 1; ii < method.parameters.length; ii++) {
-                            let tmp: sap.ui5.Parameter = method.parameters[ii];
-                            if (tmp.optional !== optional) {
-                                optional = false;
-                                break;
+                        for (let tItem of pItem.types) {
+                            if (pItem.types.indexOf(tItem) > 0) {
+                                outFile.write(" | ");
                             }
+                            outFile.write(tItem.name);
                         }
-                        if (optional === true) {
-                            builder.wirte("?");
-                        }
-                    }
-                    builder.wirte(":");
-                    builder.wirte(" ");
-                    if (parameter.types instanceof Array && parameter.types.length > 0) {
-                        for (let j: number = 0; j < parameter.types.length; j++) {
-                            let type: sap.ui5.ParameterType = parameter.types[j];
-                            if (j > 0) {
-                                builder.wirte(" | ");
-                            }
-                            builder.wirte(format.types(type.value));
-                        }
-                    }
-                }
-            }
-            builder.wirte(")");
-            builder.wirte(":");
-            builder.wirte(" ");
-            if (method.returnValue) {
-                if (method.returnValue.types instanceof Array) {
-                    for (let j: number = 0; j < method.returnValue.types.length; j++) {
-                        let type: sap.ui5.ParameterType = method.returnValue.types[j];
-                        if (j > 0) {
-                            builder.wirte(" | ");
-                        }
-                        builder.wirte(format.types(type.value));
                     }
                 } else {
-                    builder.wirte(format.types(method.returnValue.type));
+                    for (let tItem of pItem.types) {
+                        if (pItem.types.indexOf(tItem) > 0) {
+                            outFile.write(" | ");
+                        }
+                        outFile.write(tItem.name);
+                    }
                 }
-            } else if (method.name.startsWith("get")) {
-                // get方法，默认返回any
-                builder.wirte("any");
+            }
+        };
+        outFile.write("(");
+        writeParameters(element.parameters);
+        outFile.write(")");
+        outFile.write(": ");
+        if (element.returns.length === 0) {
+            outFile.write("void");
+        } else {
+            for (let tItem of element.returns) {
+                if (element.returns.indexOf(tItem) > 0) {
+                    outFile.write(" | ");
+                }
+                outFile.write(tItem.name);
+            }
+        }
+        outFile.write(";");
+        outFile.write(NEW_LINE);
+    }
+
+    protected writeConstructor(element: ConstructorElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(element.name);
+        outFile.write("(");
+        for (let pItem of element.parameters) {
+            if (element.parameters.indexOf(pItem) > 0) {
+                outFile.write(", ");
+            }
+            outFile.write(pItem.name);
+            if (pItem.optional) {
+                outFile.write("?");
+            }
+            outFile.write(": ");
+            for (let tItem of pItem.types) {
+                if (pItem.types.indexOf(tItem) > 0) {
+                    outFile.write(" | ");
+                }
+                outFile.write(tItem.name);
+            }
+        }
+        outFile.write(");");
+        outFile.write(NEW_LINE);
+    }
+    protected writeProperty(element: PropertyElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(this.tabSpace(level));
+        outFile.write(element.name);
+        if (element.optional) {
+            outFile.write("?");
+        }
+        outFile.write(": ");
+        for (let tItem of element.types) {
+            if (element.types.indexOf(tItem) > 0) {
+                outFile.write(" | ");
+            }
+            outFile.write(tItem.name);
+            if (element.array) {
+                outFile.write("[]");
+            }
+        }
+        outFile.write(";");
+        outFile.write(NEW_LINE);
+    }
+    protected writeInterface(element: InterfaceElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(this.tabSpace(level));
+        if (element.visibility === Visibility.PUBLIC && !strings(this.extension).endsWith(".d.ts")) {
+            outFile.write("export ");
+        }
+        outFile.write("interface ");
+        outFile.write(element.name);
+        outFile.write(" ");
+        for (let item of element.extends) {
+            if (element.extends.indexOf(item) > 0) {
+                outFile.write(", ");
             } else {
-                builder.wirte("void");
+                outFile.write("extends ");
             }
-            builder.wirte(";");
-            builder.wirteLine("");
-            this.outFile.write(builder.toString());
+            outFile.write(item);
+            outFile.write(" ");
         }
-        protected outPutConstructor(method: sap.ui5.Constructor): void {
-            let builder: Builder = new Builder();
-            // 输出注释
-            builder.wirteLine("/**");
-            if (method.description) {
-                builder.wirte(" * ");
-                builder.wirte(method.description);
-                builder.wirteLine("");
-            }
-            if (method.parameters instanceof Array && method.parameters.length > 0) {
-                for (let i: number = 0; i < method.parameters.length; i++) {
-                    let parameter: sap.ui5.ConstructorParameter = method.parameters[i];
-                    if (parameter.depth > 0) {
-                        // 子参数，不处理
-                        continue;
-                    }
-                    builder.wirte(" * ");
-                    builder.wirte("@param");
-                    builder.wirte(" ");
-                    if (parameter.types instanceof Array && parameter.types.length > 0) {
-                        builder.wirte("{");
-                        for (let j: number = 0; j < parameter.types.length; j++) {
-                            let type: sap.ui5.ConstructorParameterType = parameter.types[j];
-                            if (j > 0) {
-                                builder.wirte(" | ");
-                            }
-                            builder.wirte(format.types(type.name));
-                        }
-                        builder.wirte("}");
-                        builder.wirte(" ");
-                    }
-                    builder.wirte(parameter.name);
-                    builder.wirte(" ");
-                    builder.wirte(parameter.description);
-                    builder.wirteLine("");
-                }
-            }
-            builder.wirteLine(" */");
-            this.outFile.write(builder.toString());
-            // 输出方法
-            builder = new Builder();
-            builder.wirte("constructor");
-            builder.wirte("(");
-            if (method.parameters instanceof Array && method.parameters.length > 0) {
-                for (let i: number = 0; i < method.parameters.length; i++) {
-                    let parameter: sap.ui5.ConstructorParameter = method.parameters[i];
-                    if (parameter.depth > 0) {
-                        // 子参数，不处理
-                        continue;
-                    }
-                    if (i > 0) {
-                        builder.wirte(",");
-                        builder.wirte(" ");
-                    }
-                    if (parameter.name.indexOf("&") > 0 || parameter.name.indexOf(";") > 0) {
-                        builder.wirte("arg" + String(i));
-                    } else {
-                        builder.wirte(parameter.name);
-                    }
-                    if (parameter.optional === true) {
-                        // 后面也必须是可选的
-                        let optional: boolean = true;
-                        for (let ii: number = i + 1; ii < method.parameters.length; ii++) {
-                            let tmp: sap.ui5.ConstructorParameter = method.parameters[ii];
-                            if (tmp.optional !== optional) {
-                                optional = false;
-                                break;
-                            }
-                        }
-                        if (optional === true) {
-                            builder.wirte("?");
-                        }
-                    }
-                    builder.wirte(":");
-                    builder.wirte(" ");
-                    if (parameter.types instanceof Array && parameter.types.length > 0) {
-                        for (let j: number = 0; j < parameter.types.length; j++) {
-                            let type: sap.ui5.ConstructorParameterType = parameter.types[j];
-                            if (j > 0) {
-                                builder.wirte(" | ");
-                            }
-                            builder.wirte(format.types(type.name));
-                        }
-                    }
-                }
-            }
-            builder.wirte(")");
-            builder.wirte(";");
-            builder.wirteLine("");
-            this.outFile.write(builder.toString());
+        outFile.write("{");
+        outFile.write(NEW_LINE);
+        // 属性
+        for (let item of element.properties) {
+            this.writeProperty(item, outFile, level + 1);
         }
-        run(data: string | Buffer, outFolder: string, callBack: Function = undefined): string {
-            let api: sap.ui5.Api = JSON.parse(data.toString());
-            if (!api || !api.library) {
-                throw new Error("invaild api data.");
-            }
-            let outFile: string = path.join(outFolder, api.library + ".d.ts");
-            this.outFile = fs.createWriteStream(outFile, {
-                encoding: "utf-8"
-            });
-            this.outFile.once("close", function (): void {
-                if (callBack instanceof Function) {
-                    callBack();
-                }
-            });
-            this.outFile.write(format.copyrights());
-            this.outPutLibrary(api.symbols);
-            this.outFile.end();
-            return outFile;
+        // 方法
+        for (let item of element.methods) {
+            this.writeFunction(item, outFile, level + 1);
         }
+        outFile.write(this.tabSpace(level));
+        outFile.write("}");
+        outFile.write(NEW_LINE);
+        outFile.write(NEW_LINE);
+    }
+    protected writeEnum(element: EnumElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(this.tabSpace(level));
+        if (element.visibility === Visibility.PUBLIC && !strings(this.extension).endsWith(".d.ts")) {
+            outFile.write("export ");
+        }
+        outFile.write("enum ");
+        outFile.write(element.name);
+        outFile.write(" ");
+        outFile.write("{");
+        outFile.write(NEW_LINE);
+        // 值
+        for (let item of element.values) {
+            outFile.write(this.tabSpace(level + 1));
+            outFile.write(item.name);
+            outFile.write(" ");
+            outFile.write("=");
+            outFile.write(" ");
+            outFile.write(item.value);
+            outFile.write(",");
+            outFile.write(NEW_LINE);
+        }
+        outFile.write(this.tabSpace(level));
+        outFile.write("}");
+        outFile.write(NEW_LINE);
+        outFile.write(NEW_LINE);
+    }
+    protected writeTypedef(element: TypedefElement, outFile: fs.WriteStream, level: number): void {
+        outFile.write(this.tabSpace(level));
+        if (element.visibility === Visibility.PUBLIC && !strings(this.extension).endsWith(".d.ts")) {
+            outFile.write("export ");
+        }
+        outFile.write("type ");
+        outFile.write(element.name);
+        outFile.write(" ");
+        outFile.write("=");
+        outFile.write(" ");
+        // 值
+        for (let item of element.types) {
+            if (element.types.indexOf(item) > 0) {
+                outFile.write(" | ");
+            }
+            outFile.write(item.name);
+        }
+        outFile.write(";");
+        outFile.write(NEW_LINE);
+        outFile.write(NEW_LINE);
     }
 }

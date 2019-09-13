@@ -1,6 +1,6 @@
 {
   "name": "btulz",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "description": "tools suit including types creater.",
   "main": "index.js",
   "bin": {
@@ -18,8 +18,9 @@
     "btulz",
     "openui5",
     "sapui5",
+    ".d.ts",
     "ui5",
-    ".d.ts"
+    "wsdl"
   ],
   "author": "niuren.zhu",
   "license": "Apache-2.0",
@@ -30,12 +31,16 @@
   "dependencies": {
     "request": "^2.88.0",
     "string": "^3.3.3",
+    "xmldom": "^0.1.27",
+    "string-format": "^2.0.0",
     "yargs": "^12.0.5"
   },
   "devDependencies": {
     "@types/request": "^2.48.1",
     "@types/string": "0.0.29",
     "@types/uuid": "^3.4.4",
+    "@types/xmldom": "^0.1.27",
+    "@types/string-format": "^2.0.0",
     "@types/yargs": "^12.0.8"
   }
 }

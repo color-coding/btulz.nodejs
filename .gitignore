@@ -62,9 +62,11 @@ typings/
 
 # compiled files
 *.js
+*.map
 
 # vscode files
 .vscode
 
 # test data files
 test/data/**
+test/wsdl/**
