@@ -8,4 +8,4 @@ tsconfig.json
 *.map
 
 # test data files
-test/data/**
+test/**

@@ -120,6 +120,7 @@ const NODE_NAME_SEQUENCE: string = "xsd:sequence";
 const NODE_NAME_EXTENSION: string = "xsd:extension";
 const NODE_NAME_RESTRICTION: string = "xsd:restriction";
 const NODE_NAME_ENUMERATION: string = "xsd:enumeration";
+const NODE_NAME_ATTRIBUTE: string = "xsd:attribute";
 export class ElementParser {
     /** 数据文档 */
     document: Document;
@@ -227,9 +228,10 @@ export class ElementParser {
         this.package.elements.push(element);
     }
     protected parsingComplexType(node: Node): void {
+        let element: code.InterfaceElement;
         for (let nItem of documents.childElements(node)) {
             if (nItem.nodeName === NODE_NAME_SEQUENCE) {
-                let element: code.InterfaceElement = new code.InterfaceElement();
+                element = new code.InterfaceElement();
                 element.name = documents.attributeValue(node, "name");
                 console.log("--%s", element.toString());
                 for (let sItem of documents.childElements(nItem)) {
@@ -261,6 +263,14 @@ export class ElementParser {
                         this.package.elements.push(element);
                     }
                 }
+            } else if (nItem.nodeName === NODE_NAME_ATTRIBUTE && element) {
+                let property: code.PropertyElement = new code.PropertyElement();
+                property.name = "$" + documents.attributeValue(nItem, "name");
+                property.optional = true;
+                let type: code.ParameterTypeElement = new code.ParameterTypeElement();
+                type.naming(documents.attributeValue(nItem, "type"));
+                property.types.push(type);
+                element.properties.push(property);
             }
         }
     }
