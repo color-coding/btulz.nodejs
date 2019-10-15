@@ -67,6 +67,9 @@ typings/
 # vscode files
 .vscode
 
+# mac os files
+.DS_Store
+
 # test data files
 test/data/**
 test/wsdl/**

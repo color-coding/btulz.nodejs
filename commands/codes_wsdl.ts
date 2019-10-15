@@ -260,6 +260,34 @@ export class ElementParser {
                         let type: code.ParameterTypeElement = new code.ParameterTypeElement();
                         type.naming(documents.attributeValue(sItem, "base"));
                         element.types.push(type);
+                        let objType: code.ParameterTypeObjectElement = null;
+                        let property: code.PropertyElement = null;
+                        let ptyType: code.ParameterTypeElement = null;
+                        for (let cItem of documents.childElements(sItem)) {
+                            if (cItem.nodeName === NODE_NAME_ATTRIBUTE) {
+                                if (!objType) {
+                                    objType = new code.ParameterTypeObjectElement();
+                                    property = new code.PropertyElement();
+                                    property.name = "Content";
+                                    ptyType = new code.ParameterTypeElement();
+                                    ptyType.naming(documents.attributeValue(sItem, "base"));
+                                    property.types.push(ptyType);
+                                    objType.properties.push(property);
+                                }
+                                property = new code.PropertyElement();
+                                property.name = "$" + documents.attributeValue(cItem, "name");
+                                if (documents.attributeValue(cItem, "use") !== "required") {
+                                    property.optional = true;
+                                }
+                                ptyType = new code.ParameterTypeElement();
+                                ptyType.naming(documents.attributeValue(cItem, "type"));
+                                property.types.push(ptyType);
+                                objType.properties.push(property);
+                            }
+                        }
+                        if (objType) {
+                            element.types.push(objType);
+                        }
                         this.package.elements.push(element);
                     }
                 }

@@ -257,6 +257,9 @@ export class ParameterElement extends Element {
 export class ParameterTypeElement extends Element {
     naming(name: string): void {
         this.name = elements.naming(name);
+        if (!this.name) {
+            this.name = "any";
+        }
     }
 }
 export class FnParameterElement extends ParameterElement {
@@ -277,6 +280,14 @@ export class TypedefElement extends Element {
     visibility: Visibility;
     /** 类型 */
     types: ParameterTypeElement[];
+}
+export class ParameterTypeObjectElement extends ParameterTypeElement {
+    constructor() {
+        super();
+        this.properties = [];
+    }
+    /** 属性 */
+    properties: PropertyElement[];
 }
 const PROPERTY_VALUES: symbol = Symbol("values");
 const NEW_LINE: string = "\n";
@@ -588,7 +599,7 @@ export class TypescriptGenerator extends CodeGenerator {
         outFile.write(");");
         outFile.write(NEW_LINE);
     }
-    protected writeProperty(element: PropertyElement, outFile: fs.WriteStream, level: number): void {
+    protected writeProperty(element: PropertyElement, outFile: fs.WriteStream, level: number, split: string = ";"): void {
         outFile.write(this.tabSpace(level));
         outFile.write(element.name);
         if (element.optional) {
@@ -604,7 +615,7 @@ export class TypescriptGenerator extends CodeGenerator {
                 outFile.write("[]");
             }
         }
-        outFile.write(";");
+        outFile.write(split);
         outFile.write(NEW_LINE);
     }
     protected writeInterface(element: InterfaceElement, outFile: fs.WriteStream, level: number): void {
@@ -680,7 +691,17 @@ export class TypescriptGenerator extends CodeGenerator {
             if (element.types.indexOf(item) > 0) {
                 outFile.write(" | ");
             }
-            outFile.write(item.name);
+            if (item instanceof ParameterTypeObjectElement) {
+                outFile.write("{");
+                outFile.write(NEW_LINE);
+                for (let pItem of item.properties) {
+                    this.writeProperty(pItem, outFile, level + 1, ",");
+                }
+                outFile.write(this.tabSpace(level));
+                outFile.write("}");
+            } else {
+                outFile.write(item.name);
+            }
         }
         outFile.write(";");
         outFile.write(NEW_LINE);
