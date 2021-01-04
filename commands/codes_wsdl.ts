@@ -92,6 +92,9 @@ export module documents {
             let attr: Attr = (<Element>node).getAttributeNode(name);
             if (!code.objects.isNull(attr)) {
                 let value: string = attr.nodeValue;
+                if (!strings(value).isEmpty()) {
+                    value = value.replace(/\r\n/g, "").replace(/\n/g, "");
+                }
                 if (cast instanceof Function) {
                     return cast(value);
                 }
@@ -113,6 +116,7 @@ const NODE_NAME_OUTPUT: string = "wsdl:output";
 const NODE_NAME_FAULT: string = "wsdl:fault";
 const NODE_NAME_SCHEMA: string = "xsd:schema";
 const NODE_NAME_ELEMENT: string = "xsd:element";
+const NODE_NAME_GROUP: string = "xsd:group";
 const NODE_NAME_COMPLEX_TYPE: string = "xsd:complexType";
 const NODE_NAME_SIMPLE_CONTENT: string = "xsd:simpleContent";
 const NODE_NAME_SIMPLE_TYPE: string = "xsd:simpleType";
@@ -210,6 +214,8 @@ export class ElementParser {
         for (let nItem of documents.childElements(node)) {
             if (nItem.nodeName === NODE_NAME_ELEMENT) {
                 this.parsingElement(nItem);
+            } else if (nItem.nodeName === NODE_NAME_GROUP) {
+                this.parsingGroup(nItem);
             } else if (nItem.nodeName === NODE_NAME_COMPLEX_TYPE) {
                 this.parsingComplexType(nItem);
             } else if (nItem.nodeName === NODE_NAME_SIMPLE_TYPE) {
@@ -226,6 +232,32 @@ export class ElementParser {
             element.extends.push(type);
         }
         this.package.elements.push(element);
+    }
+    protected parsingGroup(node: Node): void {
+        let element: code.ExtendedElement = new code.ExtendedElement();
+        element.name = documents.attributeValue(node, "name");
+        console.log("--%s", element.toString());
+        for (let nItem of documents.childElements(node)) {
+            if (nItem.nodeName === NODE_NAME_SEQUENCE) {
+                for (let pItem of documents.childElements(nItem)) {
+                    let property: code.PropertyElement = new code.PropertyElement();
+                    property.name = documents.attributeValue(pItem, "name");
+                    let type: code.ParameterTypeElement = new code.ParameterTypeElement();
+                    type.naming(documents.attributeValue(pItem, "type"));
+                    property.types.push(type);
+                    if (documents.attributeValue(pItem, "minOccurs") === "0") {
+                        property.optional = true;
+                    }
+                    if (documents.attributeValue(pItem, "maxOccurs") === "unbounded") {
+                        property.array = true;
+                    }
+                    element.properties.push(property);
+                }
+            }
+        }
+        if (element.properties instanceof Array && element.properties.length > 0) {
+            this.package.elements.push(element);
+        }
     }
     protected parsingComplexType(node: Node): void {
         let element: code.InterfaceElement;
@@ -248,6 +280,31 @@ export class ElementParser {
                             property.array = true;
                         }
                         element.properties.push(property);
+                    } else if (sItem.nodeName === NODE_NAME_GROUP) {
+                        let group: string = documents.attributeValue(sItem, "ref");
+                        if (!strings(group).isEmpty()) {
+                            group = group.substring(group.indexOf(":") + 1);
+                            for (let peItem of this.package.elements) {
+                                if (peItem instanceof code.ExtendedElement) {
+                                    if (peItem.name === group) {
+                                        for (let ppItem of peItem.properties) {
+                                            let property: code.PropertyElement = new code.PropertyElement();
+                                            property.name = ppItem.name;
+                                            property.optional = ppItem.optional;
+                                            let type: code.ParameterTypeElement = new code.ParameterTypeElement();
+                                            type.naming("String");
+                                            property.types.push(type);
+                                            /*
+                                            type = new code.ParameterTypeElement();
+                                            type.naming(peItem.name);
+                                            property.types.push(type);
+                                            */
+                                            element.properties.push(property);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 this.package.elements.push(element);

@@ -6,6 +6,8 @@ tsconfig.json
 .vscode
 *.ts
 *.map
+*.wsdl
 
 # test data files
 test/**
+out/

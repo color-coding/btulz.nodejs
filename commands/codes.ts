@@ -289,6 +289,14 @@ export class ParameterTypeObjectElement extends ParameterTypeElement {
     /** 属性 */
     properties: PropertyElement[];
 }
+export class ExtendedElement extends Element {
+    constructor() {
+        super();
+        this.properties = [];
+    }
+    /** 属性 */
+    properties: PropertyElement[];
+}
 const PROPERTY_VALUES: symbol = Symbol("values");
 const NEW_LINE: string = "\n";
 /** 构建器 */
@@ -407,6 +415,8 @@ export abstract class CodeGenerator {
             this.writeEnum(element, outFile, level);
         } else if (element instanceof TypedefElement) {
             this.writeTypedef(element, outFile, level);
+        } else if (element instanceof ExtendedElement) {
+            this.writeExtended(element, outFile, level);
         }
     }
     protected abstract writeNamespace(element: NamespaceElement, outFile: fs.WriteStream, level: number): void;
@@ -414,6 +424,7 @@ export abstract class CodeGenerator {
     protected abstract writeInterface(element: InterfaceElement, outFile: fs.WriteStream, level: number): void;
     protected abstract writeEnum(element: EnumElement, outFile: fs.WriteStream, level: number): void;
     protected abstract writeTypedef(element: TypedefElement, outFile: fs.WriteStream, level: number): void;
+    protected abstract writeExtended(element: ExtendedElement, outFile: fs.WriteStream, level: number): void;
 }
 
 export class TypescriptGenerator extends CodeGenerator {
@@ -601,7 +612,13 @@ export class TypescriptGenerator extends CodeGenerator {
     }
     protected writeProperty(element: PropertyElement, outFile: fs.WriteStream, level: number, split: string = ";"): void {
         outFile.write(this.tabSpace(level));
-        outFile.write(element.name);
+        if (element.name.indexOf(":") > 0) {
+            outFile.write("\"");
+            outFile.write(element.name);
+            outFile.write("\"");
+        } else {
+            outFile.write(element.name);
+        }
         if (element.optional) {
             outFile.write("?");
         }
@@ -706,5 +723,27 @@ export class TypescriptGenerator extends CodeGenerator {
         outFile.write(";");
         outFile.write(NEW_LINE);
         outFile.write(NEW_LINE);
+    }
+    protected writeExtended(element: ExtendedElement, outFile: fs.WriteStream, level: number): void {
+        /*
+        let clazz: ClassElement = new ClassElement();
+        clazz.name = element.name;
+        clazz.extends = "String";
+        let property: PropertyElement = new PropertyElement();
+        property.name = "text";
+        property.optional = true;
+        let type: ParameterTypeElement = new ParameterTypeElement();
+        type.name = "string";
+        property.types.push(type);
+        clazz.properties.push(property);
+        property = new PropertyElement();
+        property.name = "xmlns";
+        property.optional = true;
+        type = new ParameterTypeElement();
+        type.name = "string";
+        property.types.push(type);
+        clazz.properties.push(property);
+        this.writeClass(clazz, outFile, level);
+        */
     }
 }

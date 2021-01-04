@@ -63,6 +63,7 @@ typings/
 # compiled files
 *.js
 *.map
+package-lock.json
 
 # vscode files
 .vscode
@@ -73,3 +74,5 @@ typings/
 # test data files
 test/data/**
 test/wsdl/**
+out/
+*.wsdl
