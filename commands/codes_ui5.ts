@@ -161,8 +161,23 @@ export module sapUI5 {
             builder.wirteLine("{");
             return builder.toString();
         }
-        export function types(content: string): string {
+        export function types(content: string, args?: string[]): string {
+            if (typeof content === "string") {
+                content = content.trim();
+            }
+            if (args instanceof Array) {
+                for (let i: number = 0; i < args.length; i++) {
+                    const arg: string = args[i];
+                    content = content.replace("${" + i + "}", arg);
+                }
+            }
             if (strings.equalsIgnoreCase(content, "function")) {
+                return "Function";
+            } else if (typeof (content) === "string"
+                && content.startsWith("function(") && content.indexOf(")") > 0) {
+                return "Function";
+            } else if (typeof (content) === "string"
+                && content.toLowerCase().endsWith("callback")) {
                 return "Function";
             } else if (strings.equalsIgnoreCase(content, "int")) {
                 return "number";
@@ -198,14 +213,57 @@ export module sapUI5 {
                 return "any";
             } else if (strings.equalsIgnoreCase(content, "iScroll")) {
                 return "any";
+            } else if (strings.equalsIgnoreCase(content, "ParamsType")) {
+                return "any";
+            } else if (strings.equalsIgnoreCase(content, "SourceType")) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.indexOf(".MetadataOptions.") >= 0) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.indexOf(".ODataMetaModel.") >= 0) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.indexOf(".qunit.") >= 0) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.indexOf(".Preprocessor.") >= 0) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.indexOf(".suite.") >= 0) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.startsWith("sap.") && content.endsWith(".EscapeHandler")) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.startsWith("sap.") && content.endsWith(".PropertyHelper")) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.startsWith("sap.") && content.endsWith(".ItemForValueConfiguration")) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.startsWith("sap.") && content.endsWith(".SelectedFilterKeys")) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.startsWith("sap.") && content.endsWith(".DynamicDateFormatOptions")) {
+                return "any";
+            } else if (typeof (content) === "string"
+                && content.startsWith("sap.") && content.endsWith(".IconTabBarSelectList")) {
+                return "any";
             } else if (typeof (content) === "string"
                 && (content.indexOf(":") > 0
                     || content.indexOf(">") > 0
                     || content.indexOf("<") > 0)) {
                 return "any";
-            } else if (typeof (content) === "string"
-                && content.toLowerCase().endsWith("callback")) {
-                return "Function";
+            } else if (content.indexOf("|") > 0) {
+                let newTypes: string = "";
+                for (let item of content.split("|")) {
+                    if (newTypes.length > 0) {
+                        newTypes += " | ";
+                    }
+                    newTypes += types(item.trim());
+                }
+                return newTypes;
             }
             return content;
         }
@@ -292,7 +350,7 @@ export module sapUI5 {
                 } else if (item.events && !item.nodes) {
                     // 存在事件，则为类
                     this.outPutClass(item);
-                } else if (item.properties && item.description.indexOf("Enumeration") >= 0) {
+                } else if (item.properties && item.description?.indexOf("Enumeration") >= 0) {
                     // 描述枚举类型
                     this.outPutEnum(item);
                 } else {
@@ -331,7 +389,7 @@ export module sapUI5 {
             }
             this.outFile.write(format.namespaces(format.names(nsSymbol.name)));
             if (nsSymbol.properties) {
-                if (nsSymbol.description.indexOf("Enumeration") >= 0) {
+                if (nsSymbol.description?.indexOf("Enumeration") >= 0) {
                     // 描述枚举类型
                     this.outPutEnum(nsSymbol);
                 } else {
@@ -363,6 +421,13 @@ export module sapUI5 {
                                     item.value = "object";
                                 }
                             }
+                        }
+                        // 返回类型是this则替换为any
+                        if (method.returnValue?.type === "this") {
+                            method.returnValue.type = "object";
+                        }
+                        if (method.returnValue?.typeInfo?.template === "this") {
+                            method.returnValue.typeInfo.template = "object";
                         }
                     }
                     this.outPutFunction(method, "function");
@@ -437,6 +502,13 @@ export module sapUI5 {
                         item.name.endsWith("extend") ||
                         item.name.endsWith("getMetadata"))) {
                         continue;
+                    }
+                    // 返回类型是this则替换为此类名
+                    if (item.returnValue?.type === "this") {
+                        item.returnValue.type = csSymbol.name;
+                    }
+                    if (item.returnValue?.typeInfo?.template === "this") {
+                        item.returnValue.typeInfo.template = csSymbol.name;
                     }
                     this.outPutFunction(item);
                 }
@@ -537,6 +609,10 @@ export module sapUI5 {
                         // 私有方法不处理
                         continue;
                     }
+                    if (item.visibility === "protected") {
+                        // 保护方法不处理
+                        continue;
+                    }
                     this.outPutProperty(item);
                 }
             }
@@ -548,6 +624,10 @@ export module sapUI5 {
                     }
                     if (item.visibility === "restricted") {
                         // 私有方法不处理
+                        continue;
+                    }
+                    if (item.visibility === "protected") {
+                        // 保护方法不处理
                         continue;
                     }
                     this.outPutFunction(item);
@@ -580,6 +660,9 @@ export module sapUI5 {
                 }
             }
             builder.wirte(format.names(property.name));
+            if (property.optional === true) {
+                builder.wirte("?");
+            }
             builder.wirte(":");
             builder.wirte(" ");
             if (property.type) {
@@ -625,6 +708,24 @@ export module sapUI5 {
                         }
                         builder.wirte("}");
                         builder.wirte(" ");
+                    } else if (parameter.typeInfo) {
+                        if (parameter.typeInfo.template) {
+                            builder.wirte("{");
+                            builder.wirte(format.types(parameter.typeInfo.template, parameter.typeInfo.UI5Types));
+                            builder.wirte("}");
+                            builder.wirte(" ");
+                        } else if (parameter.typeInfo.UI5Types instanceof Array && parameter.typeInfo.UI5Types.length > 0) {
+                            builder.wirte("{");
+                            for (let j: number = 0; j < parameter.typeInfo.UI5Types.length; j++) {
+                                let type: string = parameter.typeInfo.UI5Types[j];
+                                if (j > 0) {
+                                    builder.wirte(" | ");
+                                }
+                                builder.wirte(format.types(type));
+                            }
+                            builder.wirte("}");
+                            builder.wirte(" ");
+                        }
                     }
                     builder.wirte(parameter.name);
                     builder.wirte(" ");
@@ -700,6 +801,18 @@ export module sapUI5 {
                             }
                             builder.wirte(format.types(type.value));
                         }
+                    } else if (parameter.typeInfo) {
+                        if (parameter.typeInfo.template) {
+                            builder.wirte(format.types(parameter.typeInfo.template, parameter.typeInfo.UI5Types));
+                        } else if (parameter.typeInfo.UI5Types instanceof Array && parameter.typeInfo.UI5Types.length > 0) {
+                            for (let j: number = 0; j < parameter.typeInfo.UI5Types.length; j++) {
+                                let type: string = parameter.typeInfo.UI5Types[j];
+                                if (j > 0) {
+                                    builder.wirte(" | ");
+                                }
+                                builder.wirte(format.types(type));
+                            }
+                        }
                     }
                 }
             }
@@ -714,6 +827,18 @@ export module sapUI5 {
                             builder.wirte(" | ");
                         }
                         builder.wirte(format.types(type.value));
+                    }
+                } else if (method.returnValue.typeInfo) {
+                    if (method.returnValue.typeInfo.template) {
+                        builder.wirte(format.types(method.returnValue.typeInfo.template, method.returnValue.typeInfo.UI5Types));
+                    } else if (method.returnValue.typeInfo.UI5Types instanceof Array && method.returnValue.typeInfo.UI5Types.length > 0) {
+                        for (let j: number = 0; j < method.returnValue.typeInfo.UI5Types.length; j++) {
+                            let type: string = method.returnValue.typeInfo.UI5Types[j];
+                            if (j > 0) {
+                                builder.wirte(" | ");
+                            }
+                            builder.wirte(format.types(type));
+                        }
                     }
                 } else {
                     builder.wirte(format.types(method.returnValue.type));
@@ -758,6 +883,24 @@ export module sapUI5 {
                         }
                         builder.wirte("}");
                         builder.wirte(" ");
+                    } else if (parameter.typeInfo) {
+                        if (parameter.typeInfo.template) {
+                            builder.wirte("{");
+                            builder.wirte(format.types(parameter.typeInfo.template, parameter.typeInfo.UI5Types));
+                            builder.wirte("}");
+                            builder.wirte(" ");
+                        } else if (parameter.typeInfo.UI5Types instanceof Array && parameter.typeInfo.UI5Types.length > 0) {
+                            builder.wirte("{");
+                            for (let j: number = 0; j < parameter.typeInfo.UI5Types.length; j++) {
+                                let type: string = parameter.typeInfo.UI5Types[j];
+                                if (j > 0) {
+                                    builder.wirte(" | ");
+                                }
+                                builder.wirte(format.types(type));
+                            }
+                            builder.wirte("}");
+                            builder.wirte(" ");
+                        }
                     }
                     builder.wirte(parameter.name);
                     builder.wirte(" ");
@@ -810,6 +953,18 @@ export module sapUI5 {
                                 builder.wirte(" | ");
                             }
                             builder.wirte(format.types(type.name));
+                        }
+                    } else if (parameter.typeInfo) {
+                        if (parameter.typeInfo.template) {
+                            builder.wirte(format.types(parameter.typeInfo.template, parameter.typeInfo.UI5Types));
+                        } else if (parameter.typeInfo.UI5Types instanceof Array && parameter.typeInfo.UI5Types.length > 0) {
+                            for (let j: number = 0; j < parameter.typeInfo.UI5Types.length; j++) {
+                                let type: string = parameter.typeInfo.UI5Types[j];
+                                if (j > 0) {
+                                    builder.wirte(" | ");
+                                }
+                                builder.wirte(format.types(type));
+                            }
                         }
                     }
                 }

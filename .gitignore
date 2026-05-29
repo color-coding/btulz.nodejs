@@ -76,3 +76,7 @@ test/data/**
 test/wsdl/**
 out/
 *.wsdl
+
+# claude code
+.claude
+CLAUDE.md

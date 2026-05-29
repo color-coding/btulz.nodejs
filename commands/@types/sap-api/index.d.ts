@@ -14,7 +14,7 @@ declare namespace sap {
             defaultComponent: string;
             symbols: Symbol[];
         }
-        /** 符合 */
+        /** 符号 */
         export interface Symbol {
             /** 类型 */
             kind: "class" | "namespace" | "function" | "enum" | "interface" | "typedef";
@@ -62,18 +62,39 @@ declare namespace sap {
             lib?: string;
             /** 已弃用 */
             deprecated?: Deprecated | boolean;
+            /** 显示名称 */
+            displayName?: string;
         }
         /** 元数据 */
         export interface Metadata {
-            stereotype: "datatype";
+            stereotype: string;
             basetype: string;
+        }
+        /** 类型信息 */
+        export interface TypeInfo {
+            /** 模板类型表达式，如 "string"、"Array<string>"、"int | null" */
+            template: string;
+            /** UI5 类型列表，用于替换模板中的占位符 ${0}, ${1}... */
+            UI5Types?: string[];
         }
         /** 子节点 */
         export interface Node {
             /** 名称 */
             name: string;
-            /** 文本 */
-            text: string;
+            /** 文本（旧格式） */
+            text?: string;
+            /** 描述（新格式） */
+            description?: string;
+            /** 链接（新格式） */
+            href?: string;
+            /** 是否已弃用（新格式） */
+            deprecated?: boolean;
+            /** 类型（api-index 中） */
+            kind?: string;
+            /** 库（api-index 中） */
+            lib?: string;
+            /** 子节点（api-index 中） */
+            nodes?: Node[];
         }
         /** 属性 */
         export interface Property {
@@ -83,8 +104,14 @@ declare namespace sap {
             visibility: "public" | "protected" | "restricted";
             /** 描述 */
             description: string;
-            /** 类型 */
-            type: string;
+            /** 可选 */
+            optional: boolean;
+            /** 类型（旧格式） */
+            type?: string;
+            /** 值（枚举属性） */
+            value?: string;
+            /** 类型信息（新格式，1.148.0+） */
+            typeInfo?: TypeInfo;
         }
         /** 方法 */
         export interface Method {
@@ -114,12 +141,14 @@ declare namespace sap {
         }
         /** 方法返回值 */
         export interface ReturnValue {
-            /** 类型 */
+            /** 类型（旧格式，1.148.0 中仍保留） */
             type: string;
             /** 描述 */
             description: string;
-            /** 类型 */
-            types: ParameterType[];
+            /** 类型列表（旧格式） */
+            types?: ParameterType[];
+            /** 类型信息（新格式，1.148.0+） */
+            typeInfo?: TypeInfo;
         }
         /** 参数 */
         export interface Parameter {
@@ -129,8 +158,12 @@ declare namespace sap {
             optional: boolean;
             /** 描述 */
             description: string;
-            /** 类型 */
-            types: ParameterType[];
+            /** 类型（简化格式，1.148.0 旧路径 api.json） */
+            type?: string;
+            /** 类型列表（旧格式，1.148.0 新路径中可能为空数组） */
+            types?: ParameterType[];
+            /** 类型信息（新格式，1.148.0+ apiref/api.json） */
+            typeInfo?: TypeInfo;
             /** 默认值 */
             defaultValue: string;
             /** 深度 */
@@ -150,7 +183,7 @@ declare namespace sap {
             /** 参数 */
             parameters: ConstructorParameter[];
         }
-        /** 构造方法 */
+        /** 构造方法参数 */
         export interface ConstructorParameter {
             /** 名称 */
             name: string;
@@ -160,12 +193,16 @@ declare namespace sap {
             description: string;
             /** 默认值 */
             defaultValue: string;
-            /** 类型 */
-            types: ConstructorParameterType[];
+            /** 类型（简化格式，1.148.0 旧路径 api.json） */
+            type?: string;
+            /** 类型列表（旧格式，1.148.0 新路径中可能为空数组） */
+            types?: ConstructorParameterType[];
+            /** 类型信息（新格式，1.148.0+ apiref/api.json） */
+            typeInfo?: TypeInfo;
             /** 深度 */
             depth: number;
         }
-        /** 构造方法 */
+        /** 构造方法参数类型（旧格式） */
         export interface ConstructorParameterType {
             /** 类型 */
             name: string;
